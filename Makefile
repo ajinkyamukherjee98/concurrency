@@ -58,4 +58,8 @@ clean:
 
 test:
 	@chmod +x grade.py
+	@sed -i -e 's/\r$$//g' *.py # dos to unix
+	@sed -i -e 's/\r/\n/g' *.py # mac to unix
+	@sed -i -e 's/\r$$//g' *.txt # dos to unix
+	@sed -i -e 's/\r/\n/g' *.txt # mac to unix
 	./grade.py
