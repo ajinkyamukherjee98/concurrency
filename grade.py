@@ -4,6 +4,7 @@ import os
 import subprocess
 import signal
 import math
+import re
 
 # Test multiplier
 timeout_multiplier = 1 # increase to extend all timeouts
@@ -257,11 +258,39 @@ def make_assignment():
         print("Unknown error occurred")
     return False
 
+def check_global_variables():
+    global_variables = []
+    for name in ["channel", "linked_list"]:
+        error = ""
+        args = ["nm", "-f", "posix", "{}.o".format(name)]
+        try:
+            output = subprocess.check_output(args, stderr=subprocess.STDOUT).decode()
+            for line in output.splitlines():
+                if re.search(" [BbCcDdGgSsVvWw] ", line):
+                    global_variables.append("{}.c: {}".format(name, line.split(" ", 1)[0]))
+        except subprocess.CalledProcessError as e:
+            error = e.output.decode()
+        except KeyboardInterrupt:
+            error = "User interrupted global variable test"
+        except:
+            error = "Unknown error occurred"
+        if error != "":
+            print_failed("check_global_variables")
+            print(error)
+            return False
+    if len(global_variables) > 0:
+        print_failed("check_global_variables")
+        print("You are not allowed to use global variables in this assignment:")
+        for global_variable in global_variables:
+            print(global_variable)
+        return False
+    return True
+
 def grade():
     result = {}
 
     # Run make on the assignment
-    if make_assignment():
+    if make_assignment() and check_global_variables():
         # Run test cases
         for test, config in test_cases.items():
             try:
