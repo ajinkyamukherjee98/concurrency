@@ -5,9 +5,25 @@
 channel_t* channel_create(size_t size)
 {
     /* IMPLEMENT THIS */
-    return NULL;
-}
 
+      /*  buffer_t* buffer = (buffer_t*) malloc(sizeof(buffer_t)); */
+
+        /*buffer->size = 0;
+        buffer->next = 0;
+      //  buffer->capacity = capacity;
+        buffer->data = data;
+        return buffer;*/
+        /* As per the channel slide */
+        channel_t* channel = (channel_t*)malloc(sizeof(channel_t));
+        void** data  = (void**) malloc(channel->buffer->capacity * sizeof(void*));
+        channel->messages = size;/*Number of messages*/
+        channel->next = 0;/*if 0 move to next channel*/
+        channel->isOpen = 0;/* to check if channel is free?*/
+        channel->data = data;/*To store data*/
+        pthread_mutex_init(channel->mutex, NULL);
+    //return NULL;
+    return channel;
+}
 // Writes data to the given channel
 // This is a blocking call i.e., the function only returns on a successful completion of send
 // In case the channel is full, the function waits till the channel has space to write the new data
@@ -16,6 +32,26 @@ channel_t* channel_create(size_t size)
 // GEN_ERROR on encountering any other generic error of any sort
 enum channel_status channel_send(channel_t *channel, void* data)
 {
+
+  if(buffer_capacity(channel->buffer) < channel->messages)/*If buffer capcaity is less than data it can hold*/
+  {
+      pthread_mutex_lock(channel->mutex);
+      return BUFFER_ERROR;
+      pthread_mutex_unlock(channel->mutex);
+      //continue()
+  }
+  if(channel->isOpen == -1)/*If channel is closed*/
+  {
+      return CLOSED_ERROR;
+  }
+  enum buffer_status currSize = buffer_capacity(channel->buffer) - buffer_current_size(channel->buffer);
+  if(currSize <= 0)
+  {
+      return CLOSED_ERROR;
+  }
+  pthread_mutex_lock(channel->mutex);
+  buffer_add(channel->buffer, data);
+  pthread_mutex_unlock(channel->mutex);
     /* IMPLEMENT THIS */
     return SUCCESS;
 }
@@ -28,6 +64,9 @@ enum channel_status channel_send(channel_t *channel, void* data)
 // GEN_ERROR on encountering any other generic error of any sort
 enum channel_status channel_receive(channel_t* channel, void** data)
 {
+  pthread_mutex_unlock(channel->mutex);
+  buffer_remove(channel->buffer, data);
+  pthread_mutex_lock(channel->mutex)
     /* IMPLEMENT THIS */
     return SUCCESS;
 }

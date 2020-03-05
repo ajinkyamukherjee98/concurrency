@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include "buffer.h"
-#include <stddef.h> 
+#include <stddef.h>
 #include <string.h>
 #include <stdbool.h>
 #include "linked_list.h"
@@ -28,6 +28,15 @@ typedef struct {
     buffer_t* buffer;
 
     /* ADD ANY STRUCT ENTRIES YOU NEED HERE */
+
+    size_t messages;
+    size_t next; /* Keep a track of the size of the channel */
+    enum channel_status status; /*For channel status*/
+    size_t isOpen; /*is channel open?*/
+    pthread_mutex_t *mutex; /* Mutex */
+    void** data;
+
+    size_t capacity;
     /* IMPLEMENT THIS */
 } channel_t;
 
