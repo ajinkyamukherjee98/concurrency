@@ -29,14 +29,16 @@ typedef struct {
 
     /* ADD ANY STRUCT ENTRIES YOU NEED HERE */
 
-    size_t messages;
-    size_t next; /* Keep a track of the size of the channel */
+  //  size_t messages;
+  //  size_t next; /* Keep a track of the size of the channel */
     enum channel_status status; /*For channel status*/
     size_t isOpen; /*is channel open?*/
-    pthread_mutex_t *mutex; /* Mutex */
-    void** data;
-
-    size_t capacity;
+    pthread_mutex_t mutex; /* Mutex */
+    pthread_cond_t RV;
+    pthread_cond_t SD;
+    size_t channelStatus;
+    //void** data;
+    size_t bufferCapacity;
     /* IMPLEMENT THIS */
 } channel_t;
 
