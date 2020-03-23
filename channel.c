@@ -57,9 +57,10 @@ else{
 /*While there is space in the buffer*/
   //while(capacity > 0){
     for(size_t i =0; i <capacity;i++){
+      pthread_cond_wait(&(channel->SD),&(channel->mutex));
       buffer_add(channel->buffer, data);
       capacity = buffer_capacity(channel->buffer);/*Decrement the capacity*/ 
-      pthread_cond_wait(&(channel->SD),&(channel->mutex));
+     // pthread_cond_wait(&(channel->SD),&(channel->mutex));
       /*To check within loop if channel is closed, if it is, return CLOSED_ERROR*/
       if(channel->isOpen == 1){
         pthread_mutex_unlock(&(channel->mutex));
@@ -97,10 +98,12 @@ else{
   /*Calculating the current capacity of the buffer.*/
   size_t capacity = buffer_capacity(channel->buffer);
 /*While there is space in the buffer*/
-  while(capacity <= originalBufferCapacity){
+ // while(capacity <= originalBufferCapacity){
+    for(size_t i =0; i < capacity){
+    pthread_cond_wait(&(channel->SD),&(channel->mutex));
     buffer_remove(channel->buffer, data);
     capacity = buffer_capacity(channel->buffer);/*Increement the Capacity*/
-    pthread_cond_wait(&(channel->SD),&(channel->mutex));
+    //pthread_cond_wait(&(channel->SD),&(channel->mutex));
     /*To check within loop if channel is closed, if it is return CLOSED_ERROR*/
     if(channel->isOpen == 1){
       pthread_mutex_unlock(&(channel->mutex));
@@ -139,9 +142,10 @@ enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 
 /*If there is space in the buffer*/
   if(capacity > 0){
+    pthread_cond_wait(&(channel->SD),&(channel->mutex));
     buffer_add(channel->buffer, data);
     capacity = buffer_capacity(channel->buffer);/*Decrement the capacity*/ 
-    pthread_cond_wait(&(channel->SD),&(channel->mutex));
+    
     /*To check within loop if channel is closed, if it is, return CLOSED_ERROR*/
     if(channel->isOpen == 1){
       pthread_mutex_unlock(&(channel->mutex));
