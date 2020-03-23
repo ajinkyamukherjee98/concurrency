@@ -5,24 +5,32 @@
 channel_t* channel_create(size_t size)
 {
     /* IMPLEMENT THIS */
-
-      /*  buffer_t* buffer = (buffer_t*) malloc(sizeof(buffer_t)); */
-
-        /*buffer->size = 0;
-        buffer->next = 0;
-      //  buffer->capacity = capacity;
-        buffer->data = data;
-        return buffer;*/
-        /* As per the channel slide */
+      /*Malloc Channel as per the slide*/
         channel_t* channel = (channel_t*)malloc(sizeof(channel_t));
-        void** data  = (void**) malloc(channel->buffer->capacity * sizeof(void*));
-        channel->messages = size;/*Number of messages*/
-        channel->next = 0;/*if 0 move to next channel*/
+
+        if (channel != NULL){
+
+        channel->status = 0;
+
+        channel->buffer = buffer_create(size);
+
         channel->isOpen = 0;/* to check if channel is free?*/
-        channel->data = data;/*To store data*/
-        pthread_mutex_init(channel->mutex, NULL);
+        channel->channelStatus = 0;/*If channelStatus = 0, channel exists otherwise does not exist.*/
+
+        channel->bufferCapacity = buffer_capacity(channel->buffer);/*To know the original capacity of the buffer*/
+
+        pthread_mutex_init(&(channel->mutex), NULL);//Initializeing pthread mutex
+
+        pthread_cond_init(&(channel->RV),NULL);
+
+        pthread_cond_init(&(channel->SD),NULL);
+
+
+        return channel;
+      }
+
     //return NULL;
-    return channel;
+    return NULL;
 }
 // Writes data to the given channel
 // This is a blocking call i.e., the function only returns on a successful completion of send
@@ -32,28 +40,38 @@ channel_t* channel_create(size_t size)
 // GEN_ERROR on encountering any other generic error of any sort
 enum channel_status channel_send(channel_t *channel, void* data)
 {
-
-  if(buffer_capacity(channel->buffer) < channel->messages)/*If buffer capcaity is less than data it can hold*/
-  {
-      pthread_mutex_lock(channel->mutex);
-      return BUFFER_ERROR;
-      pthread_mutex_unlock(channel->mutex);
-      //continue()
+  /*Check if channel exists or not*/
+  if(channel->channelStatus != 0){
+    return GEN_ERROR;
   }
-  if(channel->isOpen == -1)/*If channel is closed*/
-  {
-      return CLOSED_ERROR;
+  /* checking if channel is closed */
+if(channel->isOpen == 1){
+  return CLOSED_ERROR;
+}
+/*If Open*/
+else{
+/*Adding a lock to block other channels*/
+  pthread_mutex_lock(&(channel->mutex));
+  /*Calculating the current capacity of the buffer.*/
+  size_t capacity = buffer_capacity(channel->buffer);
+/*While there is space in the buffer*/
+  //while(capacity > 0){
+    for(size_t i =0; i <capacity;i++){
+      buffer_add(channel->buffer, data);
+      capacity = buffer_capacity(channel->buffer);/*Decrement the capacity*/ 
+      pthread_cond_wait(&(channel->SD),&(channel->mutex));
+      /*To check within loop if channel is closed, if it is, return CLOSED_ERROR*/
+      if(channel->isOpen == 1){
+        pthread_mutex_unlock(&(channel->mutex));
+        return CLOSED_ERROR;
+      }
   }
-  enum buffer_status currSize = buffer_capacity(channel->buffer) - buffer_current_size(channel->buffer);
-  if(currSize <= 0)
-  {
-      return CLOSED_ERROR;
-  }
-  pthread_mutex_lock(channel->mutex);
-  buffer_add(channel->buffer, data);
-  pthread_mutex_unlock(channel->mutex);
+  pthread_cond_signal(&channel->RV);
+  pthread_mutex_lock(&(channel->mutex));
     /* IMPLEMENT THIS */
-    return SUCCESS;
+  return SUCCESS;
+  }
+  //return NULL;
 }
 
 // Reads data from the given channel and stores it in the function’s input parameter, data (Note that it is a double pointer).
@@ -64,13 +82,38 @@ enum channel_status channel_send(channel_t *channel, void* data)
 // GEN_ERROR on encountering any other generic error of any sort
 enum channel_status channel_receive(channel_t* channel, void** data)
 {
-  pthread_mutex_unlock(channel->mutex);
-  buffer_remove(channel->buffer, data);
-  pthread_mutex_lock(channel->mutex)
-    /* IMPLEMENT THIS */
-    return SUCCESS;
+  /*Check if channel exists or not*/
+  if(channel->channelStatus != 0){
+    return GEN_ERROR;
+  }
+  /* checking if channel is closed or open*/
+size_t originalBufferCapacity = channel->bufferCapacity;
+if(channel->isOpen == 1){
+  return CLOSED_ERROR;
 }
-
+else{
+/*Adding a lock to block other channels*/
+  pthread_mutex_lock(&(channel->mutex));
+  /*Calculating the current capacity of the buffer.*/
+  size_t capacity = buffer_capacity(channel->buffer);
+/*While there is space in the buffer*/
+  while(capacity <= originalBufferCapacity){
+    buffer_remove(channel->buffer, data);
+    capacity = buffer_capacity(channel->buffer);/*Increement the Capacity*/
+    pthread_cond_wait(&(channel->SD),&(channel->mutex));
+    /*To check within loop if channel is closed, if it is return CLOSED_ERROR*/
+    if(channel->isOpen == 1){
+      pthread_mutex_unlock(&(channel->mutex));
+      return CLOSED_ERROR;
+    }
+  }
+  pthread_cond_signal(&channel->RV);
+  pthread_mutex_lock(&(channel->mutex));
+    /* IMPLEMENT THIS */
+  return SUCCESS;
+  }
+  //return NULL;
+}
 // Writes data to the given channel
 // This is a non-blocking call i.e., the function simply returns if the channel is full
 // Returns SUCCESS for successfully writing data to the channel,
@@ -79,8 +122,38 @@ enum channel_status channel_receive(channel_t* channel, void** data)
 // GEN_ERROR on encountering any other generic error of any sort
 enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 {
+  /*Check if channel exists or not*/
+  if(channel->channelStatus != 0){
+    return GEN_ERROR;
+  }
+  /*Check if channel exists or not*/
+  if(channel->isOpen == 1){
+    return CLOSED_ERROR;
+  }
+  /*If Open*/
+  else{
+/*Adding a lock to block other channels*/
+  pthread_mutex_lock(&(channel->mutex));
+  /*Calculating the current capacity of the buffer.*/
+  size_t capacity = buffer_capacity(channel->buffer);
+
+/*If there is space in the buffer*/
+  if(capacity > 0){
+    buffer_add(channel->buffer, data);
+    capacity = buffer_capacity(channel->buffer);/*Decrement the capacity*/ 
+    pthread_cond_wait(&(channel->SD),&(channel->mutex));
+    /*To check within loop if channel is closed, if it is, return CLOSED_ERROR*/
+    if(channel->isOpen == 1){
+      pthread_mutex_unlock(&(channel->mutex));
+      return CLOSED_ERROR;
+    }
+  }
+
+  pthread_cond_signal(&channel->RV);
+  pthread_mutex_lock(&(channel->mutex));
     /* IMPLEMENT THIS */
-    return SUCCESS;
+  return SUCCESS;
+  }  
 }
 
 // Reads data from the given channel and stores it in the function’s input parameter data (Note that it is a double pointer)
@@ -91,8 +164,39 @@ enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 // GEN_ERROR on encountering any other generic error of any sort
 enum channel_status channel_non_blocking_receive(channel_t* channel, void** data)
 {
+  size_t originalBufferCapacity = channel->bufferCapacity;
+  /*Check if channel exists or not*/
+  if(channel->channelStatus != 0){
+    return GEN_ERROR;
+  }
     /* IMPLEMENT THIS */
-    return SUCCESS;
+    /*If channel is closed*/
+    if(channel->isOpen == 1){
+      return CLOSED_ERROR;
+    }
+    /*If Open*/
+  else{
+/*Adding a lock to block other channels*/
+  pthread_mutex_lock(&(channel->mutex));
+  /*Calculating the current capacity of the buffer.*/
+  size_t capacity = buffer_capacity(channel->buffer);
+
+/*If there is space in the buffer*/
+  if(capacity <= originalBufferCapacity){
+    buffer_remove(channel->buffer, data);
+    capacity = buffer_capacity(channel->buffer);/*Increement the buffer capacity*/ 
+    pthread_cond_wait(&(channel->SD),&(channel->mutex));
+    /*To check within loop if channel is closed, if it is, return CLOSED_ERROR*/
+    if(channel->isOpen == 1){
+      pthread_mutex_unlock(&(channel->mutex));
+      return CLOSED_ERROR;
+    }
+  }
+  pthread_cond_signal(&channel->RV);
+  pthread_mutex_lock(&(channel->mutex));
+    /* IMPLEMENT THIS */
+  return SUCCESS;
+  }
 }
 
 // Closes the channel and informs all the blocking send/receive/select calls to return with CLOSED_ERROR
@@ -102,8 +206,22 @@ enum channel_status channel_non_blocking_receive(channel_t* channel, void** data
 // GEN_ERROR in any other error case
 enum channel_status channel_close(channel_t* channel)
 {
+  /*Check if channel exists or not*/
+  if(channel->channelStatus != 0){
+    return GEN_ERROR;
+  }
+  /*If channel is close*/
+  if(channel->isOpen == 1)
+  {
+    return CLOSED_ERROR;
+  }
+  else{
+    channel->isOpen = 1;/*Closing the channel*/
+    pthread_cond_signal(&(channel->RV));
+    pthread_cond_signal(&(channel->SD));
     /* IMPLEMENT THIS */
     return SUCCESS;
+  }
 }
 
 // Frees all the memory allocated to the channel
@@ -113,8 +231,24 @@ enum channel_status channel_close(channel_t* channel)
 // GEN_ERROR in any other error case
 enum channel_status channel_destroy(channel_t* channel)
 {
-    /* IMPLEMENT THIS */
+  /*Check if channel exists or not*/
+  if(channel->channelStatus != 0){
+    return GEN_ERROR;
+  }
+  /*If channel is closed*/
+  if(channel->isOpen == 0){
+    return DESTROY_ERROR;
+  }
+  else{
+    buffer_free(channel->buffer);/*Free the channel buffer*/
+    pthread_mutex_destroy(&(channel->mutex));
+    pthread_cond_destroy(&(channel->RV));
+    pthread_cond_destroy(&(channel->SD));
+    free(channel);
     return SUCCESS;
+  }
+    /* IMPLEMENT THIS */
+
 }
 
 // Takes an array of channels, channel_list, of type select_t and the array length, channel_count, as inputs
