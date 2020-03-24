@@ -37,7 +37,7 @@ typedef struct {
     pthread_cond_t RV;
     pthread_cond_t SD;
     size_t channelStatus;
-    //void** data;
+    void** data;
     size_t bufferCapacity;
     /* IMPLEMENT THIS */
 } channel_t;
