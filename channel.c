@@ -66,14 +66,19 @@ enum channel_status channel_send(channel_t *channel, void* data)
       }  */
        else {
          //pthread_cond_wait(&(channel->RV),&(channel->mutex));
-          while(buffer_add(channel->buffer,data) == BUFFER_SUCCESS){
+          while(buffer_add(channel->buffer,data) != BUFFER_SUCCESS){
             //capacity = channel->buffer->size;
-            pthread_cond_signal(&(channel->SD));
+            //pthread_cond_signal(&(channel->SD));
+            pthread_cond_wait(&(channel->RV),&(channel->mutex));
+            //capacity = channel->buffer->size;
+           // pthread_mutex_unlock(&(channel->mutex));
+            //return SUCCESS;
+          } 
+          //pthread_cond_wait(&(channel->RV),&(channel->mutex));   
+          pthread_cond_signal(&(channel->SD));
             //capacity = channel->buffer->size;
             pthread_mutex_unlock(&(channel->mutex));
             return SUCCESS;
-          } 
-          pthread_cond_wait(&(channel->RV),&(channel->mutex));   
        }
           pthread_mutex_unlock(&(channel->mutex));
             return GEN_ERROR;
@@ -113,14 +118,19 @@ enum channel_status channel_receive(channel_t* channel, void** data)
       }*/
       //pthread_cond_wait(&(channel->SD),&(channel->mutex)); 
               
-      while(buffer_remove(channel->buffer,data) == BUFFER_SUCCESS){
+      while(buffer_remove(channel->buffer,data) != BUFFER_SUCCESS){
         //apacity = channel->buffer->size;
-         pthread_cond_signal(&(channel->RV));
+        pthread_cond_wait(&(channel->SD),&(channel->mutex));
+         //pthread_cond_signal(&(channel->RV));
+        //capacity = channel->buffer->size;
+        //pthread_mutex_unlock(&(channel->mutex));
+        //return SUCCESS;
+      }
+           // pthread_cond_wait(&(channel->SD),&(channel->mutex)); 
+           pthread_cond_signal(&(channel->RV));
         //capacity = channel->buffer->size;
         pthread_mutex_unlock(&(channel->mutex));
         return SUCCESS;
-      }
-            pthread_cond_wait(&(channel->SD),&(channel->mutex)); 
              
       }
       
@@ -160,14 +170,17 @@ enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
           //buffer_add(channel->buffer,data);
       }  */
       //pthread_cond_wait(&channel->RV,&channel->mutex);
-      if(buffer_add(channel->buffer,data) == BUFFER_SUCCESS){
+      if(buffer_add(channel->buffer,data) != BUFFER_SUCCESS){
         //capacity = channel->buffer->size;
        // pthread_cond_signal(&channel->RV);
         //capacity = channel->buffer->size;
-        pthread_mutex_unlock(&channel->mutex);
-        return SUCCESS;
+        pthread_cond_wait(&channel->RV,&channel->mutex);
+        //pthread_mutex_unlock(&channel->mutex);
+        //return SUCCESS;
       } 
-       pthread_cond_wait(&channel->RV,&channel->mutex);
+      // pthread_cond_wait(&channel->RV,&channel->mutex);
+       pthread_mutex_unlock(&channel->mutex);
+        return SUCCESS;
       }
       pthread_mutex_unlock(&channel->mutex);
       return GEN_ERROR;
@@ -203,14 +216,17 @@ enum channel_status channel_non_blocking_receive(channel_t* channel, void** data
       while( capacity == channel->buffer->capacity){
         pthread_cond_wait(&channel->RV,&channel->mutex);
       }*/
-      if(buffer_remove(channel->buffer,data) == BUFFER_SUCCESS){
+      if(buffer_remove(channel->buffer,data) != BUFFER_SUCCESS){
         //apacity = channel->buffer->size;
         // pthread_cond_signal(&channel->SD);
         //capacity = channel->buffer->size;
-        pthread_mutex_unlock(&channel->mutex);
-        return SUCCESS;
+        pthread_cond_wait(&(channel->SD),&(channel->mutex));
+       // pthread_mutex_unlock(&channel->mutex);
+        //return SUCCESS;
       }
-             pthread_cond_wait(&channel->RV,&channel->mutex); 
+             //pthread_cond_wait(&channel->RV,&channel->mutex); 
+              pthread_mutex_unlock(&channel->mutex);
+        return SUCCESS;
       }
         pthread_mutex_unlock(&channel->mutex);
       return GEN_ERROR;
