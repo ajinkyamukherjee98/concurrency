@@ -51,36 +51,19 @@ enum channel_status channel_send(channel_t *channel, void* data)
         return CLOSED_ERROR;
     }
     /*If channel is Open*/
-      /*Blocking other channels*/
-      //size_t capacity = channel->buffer->size;
-      /*hile(channel->buffer->size <= channel->buffer->capacity){
-          pthread_cond_wait(&channel->SD,&channel->mutex); 
-          buffer_add(channel->buffer,data);
-          //pthread_cond_wait(&channel->SD,&channel->mutex); 
-         // pthread_cond_signal(&channel->RV);
-      }  */
-      //size_t capacity = channel->buffer->size; 
-      /*while(capacity != channel->buffer->capacity){
-          pthread_cond_wait(&channel->SD,&channel->mutex); 
-          //buffer_add(channel->buffer,data);
-      }  */
        else {
-         //pthread_cond_wait(&(channel->RV),&(channel->mutex));
-          while(buffer_add(channel->buffer,data) != BUFFER_SUCCESS){
-            //capacity = channel->buffer->size;
-            //pthread_cond_signal(&(channel->SD));
+          while(buffer_add(channel->buffer,data) != BUFFER_SUCCESS){/*Keep waiting if buffer is full*/
             pthread_cond_wait(&(channel->RV),&(channel->mutex));
-            //capacity = channel->buffer->size;
-           // pthread_mutex_unlock(&(channel->mutex));
-            //return SUCCESS;
-          } 
-          //pthread_cond_wait(&(channel->RV),&(channel->mutex));   
-          pthread_cond_signal(&(channel->SD));
-            //capacity = channel->buffer->size;
+            if(channel->isOpen == 1){/*Check if channel is closed after waiting:TA*/
+                pthread_mutex_unlock(&(channel->mutex));
+                  return CLOSED_ERROR;
+              }
+          }   
+          pthread_cond_signal(&(channel->SD));/*Signal other threads*/
             pthread_mutex_unlock(&(channel->mutex));
             return SUCCESS;
        }
-          pthread_mutex_unlock(&(channel->mutex));
+          pthread_mutex_unlock(&(channel->mutex));/*If no cindition is satisfied: Return Genneric Error */
             return GEN_ERROR;
 }
 
@@ -102,39 +85,23 @@ enum channel_status channel_receive(channel_t* channel, void** data)
         return CLOSED_ERROR;
     }
     /*If channel is Open*/
-      /*Blocking other channels*/
-      //pthread_cond_wait(&channel->RV,&channel->mutex);
-    // 
-     /*while( channel->buffer->size >= channel->buffer->capacity){
-        pthread_cond_wait(&channel->RV,&channel->mutex);
-          buffer_remove(channel->buffer,data);
-          //pthread_cond_wait(&channel->RV,&channel->mutex);
-          //pthread_cond_wait(&channel->RV,&channel->mutex);
-      }*/
-      else {
-      /*size_t capacity = channel->buffer->size;
-      while( capacity == channel->buffer->capacity){
-        pthread_cond_wait(&channel->RV,&channel->mutex);
-      }*/
-      //pthread_cond_wait(&(channel->SD),&(channel->mutex)); 
-              
-      while(buffer_remove(channel->buffer,data) != BUFFER_SUCCESS){
-        //apacity = channel->buffer->size;
+      
+      else {        
+      while(buffer_remove(channel->buffer,data) != BUFFER_SUCCESS){/*Keep waiting if buffer is empty*/
         pthread_cond_wait(&(channel->SD),&(channel->mutex));
-         //pthread_cond_signal(&(channel->RV));
-        //capacity = channel->buffer->size;
-        //pthread_mutex_unlock(&(channel->mutex));
-        //return SUCCESS;
+        /*As per TA: Check after waitig if channel is open or not*/
+        if(channel->isOpen == 1){
+          pthread_mutex_unlock(&(channel->mutex));
+          return CLOSED_ERROR;
+        }
       }
-           // pthread_cond_wait(&(channel->SD),&(channel->mutex)); 
-           pthread_cond_signal(&(channel->RV));
-        //capacity = channel->buffer->size;
+        pthread_cond_signal(&(channel->RV));/*Signal other threads*/
         pthread_mutex_unlock(&(channel->mutex));
         return SUCCESS;
              
       }
       
-        pthread_mutex_unlock(&(channel->mutex));
+        pthread_mutex_unlock(&(channel->mutex));/*If no cindition is satisfied: Return Genneric Error */
       return GEN_ERROR;
     
 }
@@ -146,45 +113,27 @@ enum channel_status channel_receive(channel_t* channel, void** data)
 // GEN_ERROR on encountering any other generic error of any sort
 enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 {
-   /* IMPLEMENT THIS */
- pthread_mutex_lock(&channel->mutex);
+  /* IMPLEMENT THIS */
+  pthread_mutex_lock(&(channel->mutex));
     //channel is closed
     if(channel->isOpen == 1){
-       pthread_mutex_unlock(&channel->mutex);
+       pthread_mutex_unlock(&(channel->mutex));
         return CLOSED_ERROR;
     }
     /*If channel is Open*/
-      /*Blocking other channels*/
-      //size_t capacity = channel->buffer->size;
-      /*hile(channel->buffer->size <= channel->buffer->capacity){
-          pthread_cond_wait(&channel->SD,&channel->mutex); 
-          buffer_add(channel->buffer,data);
-          //pthread_cond_wait(&channel->SD,&channel->mutex); 
-         // pthread_cond_signal(&channel->RV);
-      }  */
-     else{
-        //pthread_mutex_lock(&channel->mutex); 
-      //size_t capacity = channel->buffer->size; 
-      /*while(capacity != channel->buffer->capacity){
-          pthread_cond_wait(&channel->SD,&channel->mutex); 
-          //buffer_add(channel->buffer,data);
-      }  */
-      //pthread_cond_wait(&channel->RV,&channel->mutex);
-      if(buffer_add(channel->buffer,data) != BUFFER_SUCCESS){
-        //capacity = channel->buffer->size;
-       // pthread_cond_signal(&channel->RV);
-        //capacity = channel->buffer->size;
-        pthread_cond_wait(&channel->RV,&channel->mutex);
-        //pthread_mutex_unlock(&channel->mutex);
-        //return SUCCESS;
-      } 
-      // pthread_cond_wait(&channel->RV,&channel->mutex);
-       pthread_mutex_unlock(&channel->mutex);
-        return SUCCESS;
-      }
-      pthread_mutex_unlock(&channel->mutex);
-      return GEN_ERROR;
+       else {
+          if(buffer_add(channel->buffer,data) != BUFFER_SUCCESS){/*unlock & Return CHANNEL_FULL if Channel is full*/
+           pthread_mutex_unlock(&(channel->mutex));
+            return CHANNEL_FULL;
+          }   
+            //pthread_cond_signal(&(channel->SD));/*Signal other threads*/
+            pthread_mutex_unlock(&(channel->mutex));
+            return SUCCESS;
+       }
+          pthread_mutex_unlock(&(channel->mutex));/*If no cindition is satisfied: Return Genneric Error */
+            return GEN_ERROR;
 }
+
 // Reads data from the given channel and stores it in the function’s input parameter data (Note that it is a double pointer)
 // This is a non-blocking call i.e., the function simply returns if the channel is empty
 // Returns SUCCESS for successful retrieval of data,
@@ -195,40 +144,24 @@ enum channel_status channel_non_blocking_receive(channel_t* channel, void** data
 {
   /* IMPLEMENT THIS */
     //channel is closed
-    pthread_mutex_lock(&channel->mutex); 
+    pthread_mutex_lock(&(channel->mutex)); 
      /*If channel is Closed*/
     if(channel->isOpen == 1){
-       pthread_mutex_unlock(&channel->mutex);
+       pthread_mutex_unlock(&(channel->mutex));
         return CLOSED_ERROR;
     }
     /*If channel is Open*/
-      /*Blocking other channels*/
-      //pthread_cond_wait(&channel->RV,&channel->mutex);
-    // 
-     /*while( channel->buffer->size >= channel->buffer->capacity){
-        pthread_cond_wait(&channel->RV,&channel->mutex);
-          buffer_remove(channel->buffer,data);
-          //pthread_cond_wait(&channel->RV,&channel->mutex);
-          //pthread_cond_wait(&channel->RV,&channel->mutex);
-      }*/
-     else{
-      /*size_t capacity = channel->buffer->size;
-      while( capacity == channel->buffer->capacity){
-        pthread_cond_wait(&channel->RV,&channel->mutex);
-      }*/
-      if(buffer_remove(channel->buffer,data) != BUFFER_SUCCESS){
-        //apacity = channel->buffer->size;
-        // pthread_cond_signal(&channel->SD);
-        //capacity = channel->buffer->size;
-        pthread_cond_wait(&(channel->SD),&(channel->mutex));
-       // pthread_mutex_unlock(&channel->mutex);
-        //return SUCCESS;
+      
+      else {        
+      if(buffer_remove(channel->buffer,data) != BUFFER_SUCCESS){/*unlock & Return CHANNEL_EMPTY if Channel is full*/
+        pthread_mutex_unlock(&(channel->mutex));
+        return CHANNEL_EMPTY;
       }
-             //pthread_cond_wait(&channel->RV,&channel->mutex); 
-              pthread_mutex_unlock(&channel->mutex);
-        return SUCCESS;
+        pthread_cond_signal(&(channel->RV));/*Signal other threads*/
+        pthread_mutex_unlock(&(channel->mutex));
+        return SUCCESS;      
       }
-        pthread_mutex_unlock(&channel->mutex);
+      pthread_mutex_unlock(&(channel->mutex));/*If no cindition is satisfied: Return Genneric Error */
       return GEN_ERROR;
       
 }
@@ -290,6 +223,58 @@ enum channel_status channel_destroy(channel_t* channel)
 // Additionally, selected_index is set to the index of the channel that generated the error
 enum channel_status channel_select(select_t* channel_list, size_t channel_count, size_t* selected_index)
 {
+   /*
+  Chanel_list has both channels and direction
+  Assume you have a chanel in list, for each cahnnel there will be send or recv, it shuld not ideally wait.
+  If the buffer is full for that channel & direction is send-> Cannot perform on this channel.
+ Go to the next channel.
+ if the buffer is empty & direction is RCV, it cannot perform on that channel, go to the next channel.
+ once all channels are checked and nothing can be done we wait(). Wake up the select function by send or recieve function.
+ Once it wakes up so it starts all over again, if it finds something it can perform return SUCCESS. 
+ If any of the channels is closed return CLOSED_ERROR; 
+
+  */
+ // Declare mutex and then initialize it. Do the same for condtionla variable.
+ //Need to make all channels know where is the conditional variable. 
+ //pthread_mutex_init* mutex;
+  //pthread_mutex_lock(&channel_list->channel->mutex);
+  /*Index chosen my the program*/
+ /* size_t * chosen_index = 0;
+  *selected_index = chosen_index;
+  My chosen_index is less than selected_index
+  while(selected_index < channel_count){
+    If channel is closed
+    if(channel_list->channel->isOpen == 1){
+      pthread_mutex_unlock(&channel_list->channel->mutex);
+      return CLOSED_ERROR;
+    }*/
+   // if(channel_list[*selected_index].dir = SEND){/*if direction is SEND*/
+    /*Store Channel*/
+    //channel_list->channel->data = channel_list[*selected_index].data;
+    //channel_list[selected_index].data = channel_list->channel->data;/*Update data*/
+    //channel_non_blocking_send(channel_list->channel, channel_list[selected_index].data)/*non blocking or not?*/
+    //channel_send(channel_list->channel, channel_list[selected_index].data);
+    //channel_send(channel_list->channel,channel_list->channel->data);
+   // pthread_mutex_unlock(&channel_list->channel->mutex);
+   // }
+//     else if(channel_list[*chosen_index].dir = RECV){/*if direction is RECV*/
+//       //channel_list->channel->data = channel_list[selected_index].data;
+//       channel_list[*selected_index].data = channel_list->channel->data;
+//       //channel_non_blocking_receive(channel_list->channel,channel_list->channel->data)/*non blocking or not?*/
+//       //channel_receive(channel_list->channel,channel_list->channel->data);
+//       channel_receive(channel_list->channel, channel_list[selected_index].data);
+//       pthread_mutex_unlock(&channel_list->channel->mutex);
+//     }
+//     /*Wait till channel is full*/
+//     while(channel_list->channel->status == CHANNEL_FULL){
+//       pthread_cond_wait(&channel_list->channel->SD, &channel_list->channel->mutex);
+//       pthread_mutex_unlock(&channel_list->channel->mutex);
+//     }
+//     selected_index++;// Increment the chosen_index till we reach selected_index;
+//   }
+//     /* IMPLEMENT THIS */
+//     pthread_mutex_unlock(&channel_list->channel->mutex);*/
     /* IMPLEMENT THIS */
     return SUCCESS;
 }
+
