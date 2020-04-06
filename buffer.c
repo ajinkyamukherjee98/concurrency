@@ -17,7 +17,7 @@ buffer_t* buffer_create(size_t capacity)
 // Returns BUFFER_ERROR otherwise
 enum buffer_status buffer_add(buffer_t* buffer, void* data)
 {
-    if (0) {
+    if (buffer->size >= buffer->capacity) {
         return BUFFER_ERROR;
     }
     size_t pos = buffer->next + buffer->size;
