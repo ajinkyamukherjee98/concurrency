@@ -236,6 +236,8 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
  If any of the channels is closed return CLOSED_ERROR; 
   */
   /*Declared locally so that all channels can follow themutex and cond variables*/
+  // Declare mutex and then initialize it. Do the same for condtionla variable.
+ //Need to make all channels know where is the conditional variable. 
   pthread_mutex_t m;// Declaring a mutex
   pthread_cond_t R; // Declaring Recieve
   pthread_cond_t S; // Declaring Send
@@ -251,16 +253,17 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
  /* If the buffer is full for that channel & direction is send-> Cannot perform on this channel.*/
  else if(buffer_add(channel_list[chosen_Index].channel->buffer,channel_list[chosen_Index].data) != BUFFER_SUCCESS && channel_list->dir == SEND){
    /*Go to the Next Channel*/
-   channel_list->channel->next = 1; //Setting channel->next to 1 to indicate to move to next Channel
+    channel_list[chosen_Index].channel->next = 1; //Setting channel->next to 1 to indicate to move to next Channel
    channel_list[chosen_Index] = channel_list[chosen_Index + 1]; //Moving onto the next channel
-   pthread_cond_signal(&S); /*Signal other threads*/
+    pthread_cond_signal(&S); 
  }
  /* If the buffer is empty & direction is RECV, it cannot perform on that channel, go to the next channel.*/
- else if(buffer_remove(channel_list[*selected_index].channel->buffer,channel_list[*selected_index].data) != BUFFER_SUCCESS && channel_list->dir == RECV){
+ else if(buffer_remove(channel_list[chosen_Index].channel->buffer,channel_list[chosen_Index].data) != BUFFER_SUCCESS && channel_list->dir == RECV){
    /*Go to the Next Channel*/
-   channel_list->channel->next = 1; //Setting channel->next to 1 to indicate to move to next Channel
+   
+  
    channel_list[chosen_Index].channel->next = 1; //Setting channel->next to 1 to indicate to move to next Channel
-   channel_list[(size_t) *selected_index] = channel_list[chosen_Index + 1]; //Moving onto the next channel
+   channel_list[chosen_Index] = channel_list[chosen_Index + 1]; //Moving onto the next channel
    pthread_cond_signal(&R); /*Signal other threads*/
  }
  else if(channel_list[chosen_Index].channel->next == 1 && (channel_list[chosen_Index + 1].channel->next == 1)){
@@ -292,8 +295,7 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
       pthread_cond_broadcast(&R);
    }
  }
- // Declare mutex and then initialize it. Do the same for condtionla variable.
- //Need to make all channels know where is the conditional variable. 
+
     /* IMPLEMENT THIS */
     
 
