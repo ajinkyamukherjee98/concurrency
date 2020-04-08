@@ -265,8 +265,6 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
  }
  else if(channel_list[chosen_Index].channel->next == 1 && (channel_list[chosen_Index + 1].channel->next == 1)){
       /*If direction is SEND*/ 
-      /**/
-      
       if(channel_list->dir == SEND){
      /*Wait*/
       pthread_cond_wait(&S,&m);
