@@ -1,13 +1,5 @@
 #include "channel.h"
 
-/**/
-typedef struct 
-{
-  pthread_mutex_t *m;// Declaring a mutex
-  pthread_cond_t *R; // Declaring Recieve
-  pthread_cond_t *S; // Declaring Send
-    
-}funct_t;
 
 
 // Creates a new channel with the provided size and returns it to the caller
@@ -243,28 +235,39 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
  Once it wakes up so it starts all over again, if it finds something it can perform return SUCCESS. 
  If any of the channels is closed return CLOSED_ERROR; 
   */
+  /*Declared locally so that all channels follow this lock*/
+  pthread_mutex_t m;// Declaring a mutex
+  pthread_cond_t R; // Declaring Recieve
+  pthread_cond_t S; // Declaring Send
+    
+pthread_mutex_lock(&m);// Lock before sharing
 
-funct_t *func;
-
-
-pthread_mutex_lock(func->m);
  if(channel_list[*selected_index].channel->isOpen == 1){
-   pthread_mutex_lock(func->m);
+   pthread_mutex_unlock(&m);
    return CLOSED_ERROR;
  }
  else if(buffer_add(channel_list[*selected_index].channel->buffer,channel_list[*selected_index].channel->data) != BUFFER_SUCCESS && channel_list->dir == SEND){
    /*Go to the Next Channel*/
-   channel_list[*selected_index] = channel_list[*selected_index + 1];// Moving onto the next channel
+   channel_list->channel->next = 1; //Setting channel->next to 1 to indicate to move to next Channel
+   channel_list[*selected_index] = channel_list[(size_t)*selected_index + 1];//Moving onto the next channel
+   pthread_cond_signal(&S);/*Signal other threads*/
+
  }
  else if(buffer_remove(channel_list[*selected_index].channel->buffer,channel_list[*selected_index].channel->data) != BUFFER_SUCCESS && channel_list->dir == RECV){
    /*Go to the Next Channel*/
+   channel_list->channel->next = 1; //Setting channel->next to 1 to indicate to move to next Channel
+   channel_list[*selected_index] = channel_list[(size_t)*selected_index + 1];//Moving onto the next channel
+   pthread_cond_signal(&R);/*Signal other threads*/
  }
  else{
    /*Wait*/
+
    //Either send or Recieve
  }
- 
+ // Declare mutex and then initialize it. Do the same for condtionla variable.
+ //Need to make all channels know where is the conditional variable. 
     /* IMPLEMENT THIS */
+    pthread_mutex_unlock(&m);
     return SUCCESS;
 }
 

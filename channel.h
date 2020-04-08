@@ -39,6 +39,7 @@ typedef struct {
     size_t channelStatus;
     void** data;
     size_t bufferCapacity;
+    size_t next;
     /* IMPLEMENT THIS */
 } channel_t;
 
@@ -47,7 +48,7 @@ enum direction {
     SEND,
     RECV,
 };
-typedef struct {
+typedef struct{
     // Channel on which we want to perform operation
     channel_t* channel;
     // Specifies whether we want to receive (RECV) or send (SEND) on the channel
@@ -55,7 +56,8 @@ typedef struct {
     // If dir is RECV, then the message received from the channel is stored as an output in this parameter, data
     // If dir is SEND, then the message that needs to be sent is given as input in this parameter, data
     void* data;
-} select_t;
+
+}select_t;
 
 // Creates a new channel with the provided size and returns it to the caller
 // A 0 size indicates an unbuffered channel, whereas a positive size indicates a buffered channel
