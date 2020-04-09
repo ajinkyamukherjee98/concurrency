@@ -242,8 +242,9 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
   pthread_mutex_t m;// Declaring a mutex
   pthread_cond_t R; // Declaring Recieve
   pthread_cond_t S; // Declaring Send
-  pthread_mutex_lock(&m);// Lock before sharing
-  for(size_t chosen_Index = 1;chosen_Index <= channel_count;chosen_Index++){
+  size_t chosen_Index = 1;
+  while(chosen_Index <= channel_count){
+    pthread_mutex_lock(&m);// Lock before sharing
     //*selected_index = chosen_Index;
  /*if(channel_list[chosen_Index].channel->isOpen == 1){
    pthread_mutex_unlock(&m);
@@ -253,9 +254,29 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
 if(channel_list->dir == SEND){//channel_list[chosen_Index].channel->buffer,channel_list[chosen_Index].data) != BUFFER_SUCCESS){// && channel_list->dir == SEND){
    /*Go to the Next Channel*/
 
-   if(channel_non_blocking_send(channel_list[*selected_index].channel,channel_list[*selected_index].data) == CHANNEL_FULL){
-     *selected_index = chosen_Index +1; 
+   if(channel_non_blocking_send(channel_list[chosen_Index].channel,channel_list[chosen_Index].data) == CHANNEL_FULL){
+      chosen_Index = chosen_Index +1;
+     *selected_index = chosen_Index; 
+     
      //chosen_Index = chosen_Index +1; 
+     pthread_mutex_unlock(&m);
+   }
+   else{
+     *selected_index = chosen_Index;
+     pthread_mutex_unlock(&m);
+     return SUCCESS;
+   }
+     pthread_mutex_destroy(&m);/*Destroy the mutex*/
+    pthread_cond_destroy(&R);/*Destroy the Condition Variable*/
+    pthread_cond_destroy(&S);/*Destroy the Condition Variable*/
+ }
+ /* If the buffer is empty & direction is RECV, it cannot perform on that channel, go to the next channel.*/
+ if(channel_list->dir == RECV){// && channel_list->dir == RECV){
+   if(channel_non_blocking_receive(channel_list[chosen_Index].channel,channel_list[chosen_Index].data) == CHANNEL_EMPTY){
+      chosen_Index = chosen_Index +1; 
+     *selected_index = chosen_Index +1; 
+      
+        pthread_mutex_unlock(&m);
    }
    else{
      *selected_index = chosen_Index;
@@ -265,30 +286,10 @@ if(channel_list->dir == SEND){//channel_list[chosen_Index].channel->buffer,chann
     pthread_mutex_destroy(&m);/*Destroy the mutex*/
     pthread_cond_destroy(&R);/*Destroy the Condition Variable*/
     pthread_cond_destroy(&S);/*Destroy the Condition Variable*/
- }
- /* If the buffer is empty & direction is RECV, it cannot perform on that channel, go to the next channel.*/
- if(channel_list->dir == RECV){// && channel_list->dir == RECV){
-   if(channel_non_blocking_receive(channel_list[*selected_index].channel,channel_list[*selected_index].data) == CHANNEL_EMPTY){
-     *selected_index = chosen_Index +1; 
-        //chosen_Index = chosen_Index +1; 
-   }
-   else{
-     *selected_index = chosen_Index;
-     pthread_mutex_unlock(&m);
-     return SUCCESS;
-   }
-  pthread_mutex_destroy(&m);/*Destroy the mutex*/
-  pthread_cond_destroy(&R);/*Destroy the Condition Variable*/
-  pthread_cond_destroy(&S);/*Destroy the Condition Variable*/
-
   }
     
    // Once an operation has been successfully performed, select should set selected_index to the index of the channel that performed the operation and then return SUCCESS
   }
-  pthread_mutex_unlock(&m);
-  pthread_mutex_destroy(&m);/*Destroy the mutex*/
-  pthread_cond_destroy(&R);/*Destroy the Condition Variable*/
-  pthread_cond_destroy(&S);/*Destroy the Condition Variable*/
   return GEN_ERROR;
 }
 
