@@ -240,11 +240,12 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
   // Declare mutex and then initialize it. Do the same for condtionla variable.
  //Need to make all channels know where is the conditional variable. 
   pthread_mutex_t m;// Declaring a mutex
-  pthread_cond_t R; // Declaring Recieve
-  pthread_cond_t S; // Declaring Send
   size_t chosen_Index = 1;
+  pthread_mutex_lock(&m);// Lock before sharing
   while(chosen_Index <= channel_count){
-    pthread_mutex_lock(&m);// Lock before sharing
+    pthread_cond_t R; // Declaring Recieve
+    pthread_cond_t S; // Declaring Send
+    //pthread_mutex_lock(&m);// Lock before sharing
     //*selected_index = chosen_Index;
  /*if(channel_list[chosen_Index].channel->isOpen == 1){
    pthread_mutex_unlock(&m);
@@ -283,13 +284,16 @@ if(channel_list->dir == SEND){//channel_list[chosen_Index].channel->buffer,chann
      pthread_mutex_unlock(&m);
      return SUCCESS;
    }
-    pthread_mutex_destroy(&m);/*Destroy the mutex*/
+     //pthread_mutex_unlock(&m);
     pthread_cond_destroy(&R);/*Destroy the Condition Variable*/
     pthread_cond_destroy(&S);/*Destroy the Condition Variable*/
+    //pthread_mutex_destroy(&m);/*Destroy the mutex*/
   }
     
    // Once an operation has been successfully performed, select should set selected_index to the index of the channel that performed the operation and then return SUCCESS
   }
+  pthread_mutex_unlock(&m);
+  pthread_mutex_destroy(&m);/*Destroy the mutex*/
   return GEN_ERROR;
 }
 
