@@ -61,7 +61,7 @@ enum channel_status channel_send(channel_t *channel, void* data)
                   return CLOSED_ERROR;
               }
           }   
-          pthread_cond_signal(&(channel->SD));/*Signal other threads*/
+            pthread_cond_signal(&(channel->SD));/*Signal other threads*/
             pthread_mutex_unlock(&(channel->mutex));
             return SUCCESS;
        }
@@ -199,7 +199,7 @@ enum channel_status channel_close(channel_t* channel)
 // GEN_ERROR in any other error case
 enum channel_status channel_destroy(channel_t* channel)
 {
-  /*If channel is closed*/
+  /*If channel is Open*/
   if(channel->isOpen == 0){
     return DESTROY_ERROR;
   }
@@ -242,57 +242,46 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
   pthread_mutex_t m;// Declaring a mutex
   pthread_cond_t R; // Declaring Recieve
   pthread_cond_t S; // Declaring Send
-  size_t chosen_Index = 0;
-
-
   pthread_mutex_lock(&m);// Lock before sharing
- while(chosen_Index <= channel_count){
- if(channel_list[chosen_Index].channel->isOpen == 1){
+  for(size_t chosen_Index = 1;chosen_Index <= channel_count;chosen_Index++){
+    //*selected_index = chosen_Index;
+ /*if(channel_list[chosen_Index].channel->isOpen == 1){
    pthread_mutex_unlock(&m);
    return CLOSED_ERROR;
- }
+ }*/
  /* If the buffer is full for that channel & direction is send-> Cannot perform on this channel.*/
- else if(channel_list->dir == SEND){//channel_list[chosen_Index].channel->buffer,channel_list[chosen_Index].data) != BUFFER_SUCCESS){// && channel_list->dir == SEND){
+if(channel_list->dir == SEND){//channel_list[chosen_Index].channel->buffer,channel_list[chosen_Index].data) != BUFFER_SUCCESS){// && channel_list->dir == SEND){
    /*Go to the Next Channel*/
-   if(buffer_add(channel_list[chosen_Index].channel->buffer,channel_list[chosen_Index].data) != BUFFER_SUCCESS){
-   channel_list[chosen_Index].channel->next = 1; //Setting channel->next to 1 to indicate to move to next Channel
-   channel_list[chosen_Index] = channel_list[chosen_Index + 1]; //Moving onto the next channel
-   //channel_list[chosen_Index] = channel_list[chosen_Index + 1]; //Moving onto the next channel
-   }
-   else if(channel_list[chosen_Index].channel->next == 1 && (channel_list[chosen_Index + 1].channel->next == 1)){
-      pthread_cond_wait(&S,&m);
-      pthread_cond_broadcast(&R);
+
+   if(channel_non_blocking_send(channel_list[*selected_index].channel,channel_list[*selected_index].data) == CHANNEL_FULL){
+     *selected_index = chosen_Index +1; 
+     //chosen_Index = chosen_Index +1; 
    }
    else{
-      channel_non_blocking_send(channel_list[chosen_Index].channel,channel_list[chosen_Index].data);
-      selected_index = &chosen_Index;
-       chosen_Index++;
-       pthread_mutex_unlock(&m);
-        return SUCCESS;
+     *selected_index = chosen_Index;
+     pthread_mutex_unlock(&m);
+     return SUCCESS;
    }
-     //pthread_cond_broadcast(&S); /*Signal other threads*/
+    pthread_mutex_destroy(&m);/*Destroy the mutex*/
+    pthread_cond_destroy(&R);/*Destroy the Condition Variable*/
+    pthread_cond_destroy(&S);/*Destroy the Condition Variable*/
  }
  /* If the buffer is empty & direction is RECV, it cannot perform on that channel, go to the next channel.*/
- else if(channel_list->dir == RECV){// && channel_list->dir == RECV){
-   /*Go to the Next Channel*/
-   if(buffer_remove(channel_list[chosen_Index].channel->buffer,channel_list[chosen_Index].data) != BUFFER_SUCCESS){
-    channel_list[chosen_Index].channel->next = 1; //Setting channel->next to 1 to indicate to move to next Channel
-    channel_list[chosen_Index] = channel_list[chosen_Index + 1]; //Moving onto the next channel
-   //pthread_cond_broadcast(&R); /*Signal other threads*/
-   }
-   else if(channel_list[chosen_Index].channel->next == 1 && (channel_list[chosen_Index + 1].channel->next == 1))
-   {
-     pthread_cond_wait(&R,&m);
-     pthread_cond_broadcast(&S);
+ if(channel_list->dir == RECV){// && channel_list->dir == RECV){
+   if(channel_non_blocking_receive(channel_list[*selected_index].channel,channel_list[*selected_index].data) == CHANNEL_EMPTY){
+     *selected_index = chosen_Index +1; 
+        //chosen_Index = chosen_Index +1; 
    }
    else{
-     channel_non_blocking_receive(channel_list[chosen_Index].channel,channel_list[chosen_Index].data);
-      selected_index = &chosen_Index;
-       chosen_Index++;
-       pthread_mutex_unlock(&m);
-        return SUCCESS;
+     *selected_index = chosen_Index;
+     pthread_mutex_unlock(&m);
+     return SUCCESS;
    }
- }
+  pthread_mutex_destroy(&m);/*Destroy the mutex*/
+  pthread_cond_destroy(&R);/*Destroy the Condition Variable*/
+  pthread_cond_destroy(&S);/*Destroy the Condition Variable*/
+
+  }
     
    // Once an operation has been successfully performed, select should set selected_index to the index of the channel that performed the operation and then return SUCCESS
   }

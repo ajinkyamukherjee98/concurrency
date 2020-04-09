@@ -39,7 +39,7 @@ typedef struct {
     size_t channelStatus;
     void** data;
     size_t bufferCapacity;
-    size_t next;
+    size_t next;//0 channel available, 1- unavaialble, -1 does not exist
     /* IMPLEMENT THIS */
 } channel_t;
 
